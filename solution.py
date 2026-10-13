@@ -11,6 +11,7 @@ Implement the three functions below (``associate``, ``correct_map``,
 """
 
 import math
+from math import dist
 from typing import List, Tuple
 
 from map_generation import Map, Point, generate_map, generate_observations
@@ -54,8 +55,7 @@ def path_length(points: List[Point], path: List[int]) -> float:
 # Step 3 -- Data association (yours to implement)
 # ---------------------------------------------------------------------------
 
-def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int]]:
-    """Associate every observation with the map point it was generated from.
+"""Associate every observation with the map point it was generated from.
 
     Given the map and the observations (noisy, incomplete and shuffled),
     recover the observation-to-map-point correspondence.
@@ -65,6 +65,47 @@ def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int
         tuples, e.g. ``[(0, 12), (3, 5)]`` means that observation 12 was
         generated from map point 0, and observation 5 from map point 3.
     """
+
+
+def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int]]:
+    associations: List[Tuple[int, int]] = []
+
+    for i, point in enumerate(map_points):
+        candidate_obs = observations[0]
+        candidate_idx = 0
+        for j, obs in enumerate(observations[1:], start=1):
+            if math.dist(obs, point) < math.dist(candidate_obs, point):
+                candidate_obs = obs
+                candidate_idx = j
+
+        associations.append((i, candidate_idx))
+
+    print(associations)
+
+    for i in range(len(associations)):
+        for j in range(i + 1, len(associations)):
+            if associations[i][1] == associations[j][1] and associations[i][1] != -1:
+                obs_idx = associations[i][1]
+
+                dist_i = math.dist(
+                    map_points[associations[i][0]],
+                    observations[obs_idx]
+                )
+                dist_j = math.dist(
+                    map_points[associations[j][0]],
+                    observations[obs_idx]
+                )
+
+                if dist_i < dist_j:
+                    associations[j] = (associations[j][0], -1)
+                else:
+                    associations[i] = (associations[i][0], -1)
+
+    associations = [pair for pair in associations if pair[1] != -1]
+    print(associations)
+
+    return associations
+
     raise NotImplementedError("Step 3 (data association) is yours to implement")
 
 
@@ -73,9 +114,9 @@ def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int
 # ---------------------------------------------------------------------------
 
 def correct_map(
-    map_points: Map,
-    observations: List[Point],
-    associations: List[Tuple[int, int]],
+        map_points: Map,
+        observations: List[Point],
+        associations: List[Tuple[int, int]],
 ) -> Map:
     """Correct the map, given the data association.
 
@@ -88,6 +129,20 @@ def correct_map(
         The corrected map: a list of ``(x, y)`` tuples with the same length
         and the same order as ``map_points``.
     """
+
+    corrected_map = map_points.copy()
+
+    for map_idx, obs_idx in associations:
+        x_map, y_map = map_points[map_idx]
+        x_obs, y_obs = observations[obs_idx]
+
+        corrected_map[map_idx] = (
+            (x_map + x_obs) / 2,
+            (y_map + y_obs) / 2
+        )
+
+    return corrected_map
+
     raise NotImplementedError("Step 4 (map correction) is yours to implement")
 
 
