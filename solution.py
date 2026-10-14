@@ -11,7 +11,6 @@ Implement the three functions below (``associate``, ``correct_map``,
 """
 
 import math
-from math import dist
 from typing import List, Tuple
 
 from map_generation import Map, Point, generate_map, generate_observations
@@ -35,6 +34,19 @@ MAP_SEED = 42
 NOISE_STD = 0.25
 OBSERVATION_RATE = 0.8
 OBSERVATIONS_SEED = 7
+
+
+def segments_cross(a: Point, b: Point, c: Point, d: Point) -> bool:
+    def orientation(p: Point, q: Point, r: Point) -> float:
+        return (q[0] - p[0]) * (r[1] - p[1]) - \
+            (q[1] - p[1]) * (r[0] - p[0])
+
+    o1 = orientation(a, b, c)
+    o2 = orientation(a, b, d)
+    o3 = orientation(c, d, a)
+    o4 = orientation(c, d, b)
+
+    return o1 * o2 < 0 and o3 * o4 < 0
 
 
 # ---------------------------------------------------------------------------
@@ -80,8 +92,6 @@ def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int
 
         associations.append((i, candidate_idx))
 
-    print(associations)
-
     for i in range(len(associations)):
         for j in range(i + 1, len(associations)):
             if associations[i][1] == associations[j][1] and associations[i][1] != -1:
@@ -102,11 +112,7 @@ def associate(map_points: Map, observations: List[Point]) -> List[Tuple[int, int
                     associations[i] = (associations[i][0], -1)
 
     associations = [pair for pair in associations if pair[1] != -1]
-    print(associations)
-
     return associations
-
-    raise NotImplementedError("Step 3 (data association) is yours to implement")
 
 
 # ---------------------------------------------------------------------------
@@ -143,31 +149,49 @@ def correct_map(
 
     return corrected_map
 
-    raise NotImplementedError("Step 4 (map correction) is yours to implement")
-
 
 # ---------------------------------------------------------------------------
 # Step 5 -- Path finding (yours to implement)
 # ---------------------------------------------------------------------------
 
 def find_path(corrected_map: Map) -> List[int]:
-    """Find a path that visits every node of the corrected map exactly once.
+    n = len(corrected_map)
+    if n == 0:
+        return []
 
-    Return the path as a list of node indices in visit order, e.g.
-    ``[4, 0, 11, 2, ...]``. A path that includes each node exactly once is
-    usually called a *Hamiltonian path*: any permutation of the node indices
-    is a formally valid answer, but:
+    path = [0]
 
-    * **Bonus 1 (+1 point)**: use a heuristic or an algorithm (e.g. nearest
-      neighbour, greedy insertion, 2-opt, ...) so that the total length of
-      your path is clearly shorter than the worst possible path. You can
-      measure it with :func:`path_length`.
+    unvisited = set(range(1, n))
 
-    * **Bonus 2 (+1 point)**: no arrow of the path goes over a previous
-      arrow (arrows that only touch at a shared node do not count as
-      crossings). You can check it visually with ``visualize_path``.
-    """
-    raise NotImplementedError("Step 5 (path finding) is yours to implement")
+    while unvisited:
+        current = path[-1]
+
+        next_node = min(
+            unvisited,
+            key=lambda i: math.dist(
+                corrected_map[current],
+                corrected_map[i]
+            )
+        )
+        path.append(next_node)
+        unvisited.remove(next_node)
+    improved = True
+
+    while improved:
+        improved = False
+        for i in range(n - 1):
+            for j in range(i + 2, n - 1):
+                a = corrected_map[path[i]]
+                b = corrected_map[path[i + 1]]
+                c = corrected_map[path[j]]
+                d = corrected_map[path[j + 1]]
+                if segments_cross(a, b, c, d):
+                    path[i + 1:j + 1] = reversed(path[i + 1:j + 1])
+                    improved = True
+                    break
+            if improved:
+                break
+    return path
 
 
 # ---------------------------------------------------------------------------
